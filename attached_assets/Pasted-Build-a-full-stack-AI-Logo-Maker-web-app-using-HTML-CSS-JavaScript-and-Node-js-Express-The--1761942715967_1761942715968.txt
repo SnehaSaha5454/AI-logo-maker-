@@ -1,0 +1,74 @@
+Build a full-stack AI Logo Maker web app using HTML, CSS, JavaScript, and Node.js (Express).  
+The website should look professional, visually attractive, and have a warm, creative Indian design style (like Indian tech/startup websites with bright gradient backgrounds, saffron and pink tones, elegant typography, and rounded UI components).  
+
+✨ **Website Flow:**
+1️⃣ **Login / Signup Page**  
+   - Two tabs: “Login” and “Register”.  
+   - Fields for Email, Username, and Password.  
+   - Simple authentication using localStorage (no backend database needed).  
+   - If user not logged in, redirect to login page.  
+   - After successful login, redirect to the main app page.
+
+2️⃣ **Logo Generation Wizard (Step-by-Step Interface):**
+   - **Step 1: Logo Name**  
+     - Field: “Logo Title” (e.g., “Add Your Business, App, or Website Name for a Custom Logo”)  
+     - Button: “Continue”
+
+   - **Step 2: Describe Your Logo Vision**  
+     - Textarea with placeholder: “Share your ideas, themes, or inspirations to create a logo that perfectly represents your brand or project.”  
+     - Buttons: “Previous” | “Continue”
+
+   - **Step 3: Choose Your Color Palette**  
+     - Color picker or a few preset color cards (e.g., Blue, Gold, Green, Red, Black).  
+     - Buttons: “Previous” | “Continue”
+
+   - **Step 4: Choose Your Logo Style**  
+     - Grid of selectable cards with text and preview icons for:  
+       - Cartoon Logo  
+       - App Logo  
+       - Modern Mascot Logos  
+       - Black and White Line Logos  
+       - Minimalist and Elegant Logos  
+       - Vintage Custom Logos  
+       - Modern Sharp-Lined Logos  
+       - Custom Luxury Logo Designs  
+       - Vintage Logo Designs With Text & Icon  
+     - Buttons: “Previous” | “Continue”
+
+   - **Step 5: Select Your Design Idea**  
+     - Options:  
+       - Abstract star, clean lines  
+       - Elegant swirling galaxy icon  
+       - Minimalist globe, modern font  
+       - Stylized ‘N’ cosmos symbol  
+       - Geometric planet, serif text  
+       - Option: “Let AI select the best idea for me”  
+     - Buttons: “Previous” | “Continue”
+
+   - **Step 6: Generate Logo**  
+     - On clicking “Generate”, use Hugging Face Image Generation API.  
+     - The prompt for generation should combine:  
+       Logo Name + Description + Chosen Colors + Logo Style + Design Idea.  
+     - Display loading spinner while generating.  
+     - After generation, show the logo in a card with download button.
+
+✨ **Design and Style:**
+- Use TailwindCSS or Bootstrap (your choice) for a modern UI.
+- Add subtle animations for transitions between steps.
+- Rounded cards, gradient backgrounds, and soft hover effects.
+- Use an Indian color palette inspiration (like bright saffron-pink gradients, off-white panels, and blue accents).
+- Add a small footer: “© 2025 Indian AI Logo Maker | Made with ❤️ in India”
+
+✨ **Technical:**
+- Frontend: HTML, CSS (Tailwind/Bootstrap), Vanilla JS.
+- Backend: Node.js with Express.
+- Use Hugging Face API (pass the key via `.env` as `HUGGINGFACE_API_KEY`).
+- API call for image generation: `POST https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0`
+- Serve frontend via Express static routes.
+- Store login info in localStorage to simulate session.
+- Provide all code in one Replit-ready format with `/public` and `/server.js`.
+
+✨ **Extra Touch:**
+- Add a soft Indian pattern background (optional).
+- Add small welcome text after login: “Welcome, [username] 👋 Let’s craft your dream logo!”
+- Make it mobile responsive and polished.
