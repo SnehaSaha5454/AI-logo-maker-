@@ -33,14 +33,15 @@ export function LogoHistory({ history, onRegenerate, userId }: LogoHistoryProps)
   const handleRegenerate = async (item: LogoHistoryItem) => {
     setRegeneratingId(item.id);
     try {
-      const response = await apiRequest<{ imageUrl: string }>("POST", "/api/generate-logo", { 
+      const response = await apiRequest("POST", "/api/generate-logo", { 
         prompt: item.prompt 
       });
+      const data = await response.json() as { imageUrl: string };
 
       const newLogo: LogoHistoryItem = {
         id: crypto.randomUUID(),
         userId,
-        imageUrl: response.imageUrl,
+        imageUrl: data.imageUrl,
         prompt: item.prompt,
         name: item.name,
         description: item.description,

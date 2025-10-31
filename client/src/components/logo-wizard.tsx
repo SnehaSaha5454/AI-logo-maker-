@@ -85,13 +85,14 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
   const generateLogo = async (prompt: string) => {
     setIsGenerating(true);
     try {
-      const response = await apiRequest<{ imageUrl: string }>("POST", "/api/generate-logo", { prompt });
-      setGeneratedImage(response.imageUrl);
+      const response = await apiRequest("POST", "/api/generate-logo", { prompt });
+      const data = await response.json() as { imageUrl: string };
+      setGeneratedImage(data.imageUrl);
       
       const newLogo: LogoHistoryItem = {
         id: crypto.randomUUID(),
         userId,
-        imageUrl: response.imageUrl,
+        imageUrl: data.imageUrl,
         prompt,
         name: logoName,
         description,
