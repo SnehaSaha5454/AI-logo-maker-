@@ -52,7 +52,7 @@ export default function AppPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold gradient-text-saffron-pink">
-              Indian AI Logo Maker
+             LogoMind AI 🧠
             </h1>
           </div>
           <Button
@@ -90,7 +90,8 @@ export default function AppPage() {
       <footer className="border-t border-border mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center">
           <p className="text-sm text-muted-foreground">
-            © 2025 Indian AI Logo Maker | Made with ❤️ in India
+             © 2025 LogoMind AI 🧠 | Powered by AI & creativity
+
           </p>
         </div>
       </footer>

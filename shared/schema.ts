@@ -14,6 +14,7 @@ export const registerSchema = z.object({
 
 export type LoginData = z.infer<typeof loginSchema>;
 export type RegisterData = z.infer<typeof registerSchema>;
+export type InsertUser = z.infer<typeof registerSchema>;
 
 // User type for localStorage
 export interface User {

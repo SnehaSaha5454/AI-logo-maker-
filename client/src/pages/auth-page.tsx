@@ -82,7 +82,8 @@ export default function AuthPage() {
       <Card className="w-full max-w-md rounded-2xl shadow-2xl bg-white p-8">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold gradient-text-saffron-pink mb-2">
-            Indian AI Logo Maker
+           LogoMind AI 🧠
+
           </h1>
           <p className="text-sm text-muted-foreground">
             Create stunning logos with AI-powered creativity
@@ -246,7 +247,7 @@ export default function AuthPage() {
       {/* Footer */}
       <div className="absolute bottom-0 left-0 right-0 py-6 text-center">
         <p className="text-sm text-white/80">
-          © 2025 Indian AI Logo Maker | Made with ❤️ in India
+          © 2025 LogoMind AI 🧠 | Powered by AI & creativity
         </p>
       </div>
     </div>
