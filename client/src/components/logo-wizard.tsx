@@ -27,6 +27,8 @@ import {
   Moon,
   Grid,
   Clock,
+  Pipette,
+  SlidersHorizontal,
 } from "lucide-react";
 import { colorOptions, logoStyles, designIdeas, type LogoHistoryItem } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
@@ -38,9 +40,9 @@ interface LogoWizardProps {
 
 const GENERATION_STAGES = [
   "Analyzing brand identity & vision...",
-  "Synthesizing custom vector prompt...",
-  "Generating neural vectors with Pollinations AI...",
-  "Harmonizing color palette & shapes...",
+  "Synthesizing vector logo prompt...",
+  "Generating neural vectors with FLUX.1 [schnell]...",
+  "Harmonizing color palette & geometry...",
   "Finalizing high-resolution logo render...",
 ];
 
@@ -88,6 +90,22 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
     const draft = getSavedDraft(userId);
     return draft && typeof draft.selectedColor === "string" ? draft.selectedColor : "";
   });
+  const [customColorDescription, setCustomColorDescription] = useState<string>(() => {
+    const draft = getSavedDraft(userId);
+    return draft && typeof draft.customColorDescription === "string" ? draft.customColorDescription : "";
+  });
+  const [customPrimaryColor, setCustomPrimaryColor] = useState<string>(() => {
+    const draft = getSavedDraft(userId);
+    return draft && typeof draft.customPrimaryColor === "string" ? draft.customPrimaryColor : "#2563EB";
+  });
+  const [customSecondaryColor, setCustomSecondaryColor] = useState<string>(() => {
+    const draft = getSavedDraft(userId);
+    return draft && typeof draft.customSecondaryColor === "string" ? draft.customSecondaryColor : "#0F172A";
+  });
+  const [customAccentColor, setCustomAccentColor] = useState<string>(() => {
+    const draft = getSavedDraft(userId);
+    return draft && typeof draft.customAccentColor === "string" ? draft.customAccentColor : "#38BDF8";
+  });
   const [selectedStyle, setSelectedStyle] = useState<string>(() => {
     const draft = getSavedDraft(userId);
     return draft && typeof draft.selectedStyle === "string" ? draft.selectedStyle : "";
@@ -119,6 +137,10 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
       if (typeof draft.logoName === "string") setLogoName(draft.logoName);
       if (typeof draft.description === "string") setDescription(draft.description);
       if (typeof draft.selectedColor === "string") setSelectedColor(draft.selectedColor);
+      if (typeof draft.customColorDescription === "string") setCustomColorDescription(draft.customColorDescription);
+      if (typeof draft.customPrimaryColor === "string") setCustomPrimaryColor(draft.customPrimaryColor);
+      if (typeof draft.customSecondaryColor === "string") setCustomSecondaryColor(draft.customSecondaryColor);
+      if (typeof draft.customAccentColor === "string") setCustomAccentColor(draft.customAccentColor);
       if (typeof draft.selectedStyle === "string") setSelectedStyle(draft.selectedStyle);
       if (typeof draft.selectedDesignIdea === "string") setSelectedDesignIdea(draft.selectedDesignIdea);
     }
@@ -146,6 +168,10 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
         logoName,
         description,
         selectedColor,
+        customColorDescription,
+        customPrimaryColor,
+        customSecondaryColor,
+        customAccentColor,
         selectedStyle,
         selectedDesignIdea,
       };
@@ -159,6 +185,10 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
     logoName,
     description,
     selectedColor,
+    customColorDescription,
+    customPrimaryColor,
+    customSecondaryColor,
+    customAccentColor,
     selectedStyle,
     selectedDesignIdea,
     isGenerating,
@@ -206,6 +236,9 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
       case 2:
         return description.trim().length >= 10;
       case 3:
+        if (selectedColor === "custom") {
+          return customColorDescription.trim().length > 0 || customPrimaryColor.length > 0;
+        }
         return selectedColor !== "";
       case 4:
         return selectedStyle !== "";
@@ -223,6 +256,8 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
         description:
           currentStep === 2
             ? "Please provide at least 10 characters for your description."
+            : currentStep === 3 && selectedColor === "custom"
+            ? "Please describe your custom palette or select colors."
             : "Select or fill in the required option to proceed.",
         variant: "destructive",
       });
@@ -235,12 +270,37 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
   };
 
+  const getColorLabelForReview = () => {
+    if (selectedColor === "ai-recommended") {
+      return "AI Recommended Palette";
+    }
+    if (selectedColor === "custom") {
+      return customColorDescription.trim() || `Custom (${customPrimaryColor}, ${customSecondaryColor}, ${customAccentColor})`;
+    }
+    const found = colorOptions.find((c) => c.value === selectedColor);
+    return found ? found.name : selectedColor;
+  };
+
   const buildPrompt = () => {
-    const colorName = colorOptions.find((c) => c.value === selectedColor)?.name || selectedColor;
+    let colorDescriptionText = "";
+    if (selectedColor === "ai-recommended") {
+      colorDescriptionText = "AI-recommended optimal color harmony tailored to the brand personality";
+    } else if (selectedColor === "custom") {
+      const parts = [];
+      if (customColorDescription.trim()) parts.push(customColorDescription.trim());
+      parts.push(`Primary: ${customPrimaryColor}, Secondary: ${customSecondaryColor}, Accent: ${customAccentColor}`);
+      colorDescriptionText = `Custom Palette (${parts.join(" • ")})`;
+    } else {
+      const found = colorOptions.find((c) => c.value === selectedColor);
+      colorDescriptionText = found
+        ? `${found.name} (${found.swatches.join(", ")}) - ${found.description}`
+        : selectedColor;
+    }
+
     const styleName = logoStyles.find((s) => s.id === selectedStyle)?.name || selectedStyle;
     const ideaName = designIdeas.find((d) => d.id === selectedDesignIdea)?.name || selectedDesignIdea;
 
-    return `Professional logo design for "${logoName}". ${description}. Color scheme: ${colorName}. Style: ${styleName}. Design concept: ${ideaName}. High quality, clean, modern, professional logo design.`;
+    return `Professional logo design for "${logoName}". ${description}. Color scheme: ${colorDescriptionText}. Style: ${styleName}. Design concept: ${ideaName}. High quality, clean, modern, professional logo design.`;
   };
 
   const handleGenerate = async () => {
@@ -259,6 +319,10 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
     setLogoName("");
     setDescription("");
     setSelectedColor("");
+    setCustomColorDescription("");
+    setCustomPrimaryColor("#2563EB");
+    setCustomSecondaryColor("#0F172A");
+    setCustomAccentColor("#38BDF8");
     setSelectedStyle("");
     setSelectedDesignIdea("");
     setGeneratedImage("");
@@ -272,11 +336,20 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
     setGenerationError(null);
 
     try {
+      const colorPayload =
+        selectedColor === "custom"
+          ? (customColorDescription.trim()
+              ? `${customColorDescription.trim()} (HEX: ${customPrimaryColor}, ${customSecondaryColor}, ${customAccentColor})`
+              : `Custom (${customPrimaryColor}, ${customSecondaryColor}, ${customAccentColor})`)
+          : selectedColor === "ai-recommended"
+          ? "ai-recommended"
+          : selectedColor;
+
       const response = await apiRequest("POST", "/api/generate-logo", {
         prompt,
         name: logoName,
         description,
-        color: selectedColor,
+        color: colorPayload,
         style: selectedStyle,
         designIdea: selectedDesignIdea,
         userId,
@@ -567,52 +640,281 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
                   Choose your color palette
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  Select the primary color theme that best represents your brand emotional tone.
+                  Select a curated brand harmony, let AI automatically harmonize your palette, or configure bespoke custom colors.
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3.5 pt-2">
-                {colorOptions.map((color) => {
-                  const isSelected = selectedColor === color.value;
-                  const colorTraits: Record<string, string> = {
-                    blue: "Trust & Tech",
-                    gold: "Luxury & Wealth",
-                    green: "Eco & Growth",
-                    red: "Bold & Passion",
-                    black: "Sleek & Modern",
-                  };
+              {/* Special Options Row: AI Recommended & Custom Bespoke */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                {/* 1. AI Recommended Option */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedColor("ai-recommended")}
+                  className={`relative p-4 rounded-2xl border-2 text-left transition-all duration-200 flex items-start gap-3.5 ${
+                    selectedColor === "ai-recommended"
+                      ? "border-orange-500 bg-orange-500/5 shadow-md ring-4 ring-orange-500/15"
+                      : "border-border/80 bg-card hover:border-orange-500/40 hover:shadow-xs"
+                  }`}
+                  data-testid="color-ai-recommended"
+                >
+                  <div className="w-12 h-12 rounded-xl gradient-saffron-pink flex items-center justify-center text-white shrink-0 shadow-md shadow-orange-500/20">
+                    <Sparkles className="w-6 h-6" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-bold text-foreground">AI Recommended</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20">
+                        Smart Choice
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                      AI analyzes your brand vision and automatically selects the optimal color harmony.
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-2">
+                      <div className="w-3.5 h-3.5 rounded-full bg-blue-500 border border-black/10 shadow-2xs" />
+                      <div className="w-3.5 h-3.5 rounded-full bg-violet-500 border border-black/10 shadow-2xs" />
+                      <div className="w-3.5 h-3.5 rounded-full bg-pink-500 border border-black/10 shadow-2xs" />
+                      <div className="w-3.5 h-3.5 rounded-full bg-amber-500 border border-black/10 shadow-2xs" />
+                      <span className="text-[10px] text-muted-foreground ml-1 font-medium">Dynamic Harmony</span>
+                    </div>
+                  </div>
+                  {selectedColor === "ai-recommended" && (
+                    <span className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full gradient-saffron-pink text-white flex items-center justify-center shadow-xs">
+                      <Check className="w-3 h-3" />
+                    </span>
+                  )}
+                </button>
 
-                  return (
-                    <button
-                      key={color.value}
-                      type="button"
-                      onClick={() => setSelectedColor(color.value)}
-                      className={`relative flex flex-col items-center p-4 rounded-2xl border-2 transition-all duration-200 ${
-                        isSelected
-                          ? "border-orange-500 bg-orange-500/5 shadow-md ring-4 ring-orange-500/15 scale-[1.02]"
-                          : "border-border/80 bg-card hover:border-orange-500/40 hover:shadow-xs"
-                      }`}
-                      data-testid={`color-${color.value}`}
-                    >
-                      {isSelected && (
-                        <span className="absolute top-2 right-2 w-5 h-5 rounded-full gradient-saffron-pink text-white flex items-center justify-center shadow-xs">
-                          <Check className="w-3 h-3" />
-                        </span>
-                      )}
+                {/* 2. Custom Palette Option */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedColor("custom")}
+                  className={`relative p-4 rounded-2xl border-2 text-left transition-all duration-200 flex items-start gap-3.5 ${
+                    selectedColor === "custom"
+                      ? "border-orange-500 bg-orange-500/5 shadow-md ring-4 ring-orange-500/15"
+                      : "border-border/80 bg-card hover:border-orange-500/40 hover:shadow-xs"
+                  }`}
+                  data-testid="color-custom"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center text-foreground shrink-0 border border-border">
+                    <SlidersHorizontal className="w-5 h-5 text-orange-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-bold text-foreground">Custom Palette</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-muted text-muted-foreground border border-border">
+                        Bespoke
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                      Enter a custom color description and choose exact HEX colors with color pickers.
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-2">
                       <div
-                        className="w-14 h-14 rounded-xl shadow-inner mb-3 border border-black/10 transition-transform group-hover:scale-105"
-                        style={{ backgroundColor: color.hex }}
+                        className="w-3.5 h-3.5 rounded-full border border-black/20 shadow-2xs"
+                        style={{ backgroundColor: customPrimaryColor || "#2563EB" }}
                       />
-                      <span className="text-sm font-bold text-foreground">{color.name}</span>
-                      <span className="text-[11px] text-muted-foreground font-mono mt-0.5">
-                        {color.hex}
+                      <div
+                        className="w-3.5 h-3.5 rounded-full border border-black/20 shadow-2xs"
+                        style={{ backgroundColor: customSecondaryColor || "#0F172A" }}
+                      />
+                      <div
+                        className="w-3.5 h-3.5 rounded-full border border-black/20 shadow-2xs"
+                        style={{ backgroundColor: customAccentColor || "#38BDF8" }}
+                      />
+                      <span className="text-[10px] text-muted-foreground ml-1 font-mono truncate max-w-[140px]">
+                        {customColorDescription ? customColorDescription.slice(0, 18) + "..." : "Custom Trio"}
                       </span>
-                      <span className="text-[10px] text-orange-600/80 dark:text-orange-400 font-medium mt-1">
-                        {colorTraits[color.value] || "Custom"}
+                    </div>
+                  </div>
+                  {selectedColor === "custom" && (
+                    <span className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full gradient-saffron-pink text-white flex items-center justify-center shadow-xs">
+                      <Check className="w-3 h-3" />
+                    </span>
+                  )}
+                </button>
+              </div>
+
+              {/* Custom Palette Configuration Drawer (shown when Custom is active) */}
+              {selectedColor === "custom" && (
+                <div className="p-5 rounded-2xl bg-card border border-orange-500/30 shadow-xs space-y-4 animate-fade-in">
+                  <div className="flex items-center gap-2">
+                    <Pipette className="w-4 h-4 text-orange-500" />
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                      Configure Your Custom Palette
+                    </h3>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="custom-color-desc" className="text-xs font-medium text-muted-foreground">
+                      Color Mood & Description (optional but recommended)
+                    </Label>
+                    <Input
+                      id="custom-color-desc"
+                      value={customColorDescription}
+                      onChange={(e) => setCustomColorDescription(e.target.value)}
+                      placeholder="e.g., deep navy blue with electric cyan accents and pure white highlights"
+                      className="h-10 text-xs rounded-xl bg-background border-border shadow-xs"
+                      data-testid="input-custom-color-desc"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                    {/* Primary Color Picker */}
+                    <div className="p-3 rounded-xl bg-muted/50 border border-border/80 space-y-2">
+                      <span className="text-[11px] font-bold text-foreground block">Primary Color</span>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={customPrimaryColor}
+                          onChange={(e) => setCustomPrimaryColor(e.target.value)}
+                          className="w-9 h-9 rounded-lg cursor-pointer border border-border bg-transparent p-0.5"
+                          title="Choose primary color"
+                        />
+                        <Input
+                          type="text"
+                          value={customPrimaryColor}
+                          onChange={(e) => setCustomPrimaryColor(e.target.value)}
+                          className="h-8 font-mono text-xs uppercase rounded-lg bg-background"
+                          placeholder="#2563EB"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Secondary Color Picker */}
+                    <div className="p-3 rounded-xl bg-muted/50 border border-border/80 space-y-2">
+                      <span className="text-[11px] font-bold text-foreground block">Secondary Color</span>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={customSecondaryColor}
+                          onChange={(e) => setCustomSecondaryColor(e.target.value)}
+                          className="w-9 h-9 rounded-lg cursor-pointer border border-border bg-transparent p-0.5"
+                          title="Choose secondary color"
+                        />
+                        <Input
+                          type="text"
+                          value={customSecondaryColor}
+                          onChange={(e) => setCustomSecondaryColor(e.target.value)}
+                          className="h-8 font-mono text-xs uppercase rounded-lg bg-background"
+                          placeholder="#0F172A"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Accent Color Picker */}
+                    <div className="p-3 rounded-xl bg-muted/50 border border-border/80 space-y-2">
+                      <span className="text-[11px] font-bold text-foreground block">Accent / Highlight</span>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={customAccentColor}
+                          onChange={(e) => setCustomAccentColor(e.target.value)}
+                          className="w-9 h-9 rounded-lg cursor-pointer border border-border bg-transparent p-0.5"
+                          title="Choose accent color"
+                        />
+                        <Input
+                          type="text"
+                          value={customAccentColor}
+                          onChange={(e) => setCustomAccentColor(e.target.value)}
+                          className="h-8 font-mono text-xs uppercase rounded-lg bg-background"
+                          placeholder="#38BDF8"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Live Swatch Preview */}
+                  <div className="p-3 rounded-xl bg-background border border-border flex items-center justify-between gap-3 text-xs">
+                    <span className="text-muted-foreground font-medium">Live Palette Harmony:</span>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center -space-x-1.5">
+                        <div
+                          className="w-6 h-6 rounded-full border-2 border-card shadow-xs"
+                          style={{ backgroundColor: customPrimaryColor }}
+                          title={`Primary: ${customPrimaryColor}`}
+                        />
+                        <div
+                          className="w-6 h-6 rounded-full border-2 border-card shadow-xs"
+                          style={{ backgroundColor: customSecondaryColor }}
+                          title={`Secondary: ${customSecondaryColor}`}
+                        />
+                        <div
+                          className="w-6 h-6 rounded-full border-2 border-card shadow-xs"
+                          style={{ backgroundColor: customAccentColor }}
+                          title={`Accent: ${customAccentColor}`}
+                        />
+                      </div>
+                      <span className="font-mono text-[11px] text-foreground font-semibold">
+                        {customPrimaryColor} • {customSecondaryColor} • {customAccentColor}
                       </span>
-                    </button>
-                  );
-                })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Curated Professional Palettes Grid (10 Palettes) */}
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Curated Professional Palettes
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    10 Studio-Tested Harmonies
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+                  {colorOptions.map((palette) => {
+                    const isSelected = selectedColor === palette.value;
+
+                    return (
+                      <button
+                        key={palette.value}
+                        type="button"
+                        onClick={() => setSelectedColor(palette.value)}
+                        className={`relative flex flex-col p-4 rounded-2xl border-2 text-left transition-all duration-200 ${
+                          isSelected
+                            ? "border-orange-500 bg-orange-500/5 shadow-md ring-4 ring-orange-500/15 scale-[1.02]"
+                            : "border-border/80 bg-card hover:border-orange-500/40 hover:shadow-xs"
+                        }`}
+                        data-testid={`color-${palette.value}`}
+                      >
+                        {isSelected && (
+                          <span className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full gradient-saffron-pink text-white flex items-center justify-center shadow-xs">
+                            <Check className="w-3 h-3" />
+                          </span>
+                        )}
+
+                        {/* Swatches strip */}
+                        <div className="flex items-center gap-1.5 mb-3">
+                          {palette.swatches.map((hexCode, idx) => (
+                            <div
+                              key={idx}
+                              className="w-7 h-7 rounded-lg border border-black/10 shadow-2xs transition-transform group-hover:scale-105"
+                              style={{ backgroundColor: hexCode }}
+                              title={hexCode}
+                            />
+                          ))}
+                        </div>
+
+                        <span className="text-sm font-bold text-foreground block">
+                          {palette.name}
+                        </span>
+
+                        <span className="text-[10px] font-mono text-muted-foreground mt-0.5 truncate">
+                          {palette.swatches.join(" • ")}
+                        </span>
+
+                        {palette.mood && (
+                          <span className="text-[10px] font-medium text-orange-600/90 dark:text-orange-400 mt-1.5 line-clamp-1">
+                            {palette.mood}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}
@@ -796,22 +1098,32 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
                       </Button>
                     </div>
 
-                    {/* Item 2: Color */}
+                    {/* Item 2: Color Palette */}
                     <div className="p-3.5 rounded-xl bg-card border border-border/80 shadow-xs flex items-center justify-between gap-3 group">
                       <div className="min-w-0 flex items-center gap-2.5">
-                        <div
-                          className="w-5 h-5 rounded-md shrink-0 border border-black/10 shadow-xs"
-                          style={{
-                            backgroundColor:
-                              colorOptions.find((c) => c.value === selectedColor)?.hex || "#f97316",
-                          }}
-                        />
+                        {selectedColor === "ai-recommended" ? (
+                          <div className="w-6 h-6 rounded-md gradient-saffron-pink flex items-center justify-center text-white shadow-xs shrink-0">
+                            <Sparkles className="w-3.5 h-3.5" />
+                          </div>
+                        ) : selectedColor === "custom" ? (
+                          <div className="flex items-center -space-x-1 shrink-0">
+                            <div className="w-4 h-4 rounded-full border border-card shadow-xs" style={{ backgroundColor: customPrimaryColor }} />
+                            <div className="w-4 h-4 rounded-full border border-card shadow-xs" style={{ backgroundColor: customSecondaryColor }} />
+                            <div className="w-4 h-4 rounded-full border border-card shadow-xs" style={{ backgroundColor: customAccentColor }} />
+                          </div>
+                        ) : (
+                          <div className="flex items-center -space-x-1 shrink-0">
+                            {(colorOptions.find((c) => c.value === selectedColor)?.swatches || ["#3B82F6"]).map((hex, idx) => (
+                              <div key={idx} className="w-4 h-4 rounded-full border border-card shadow-xs" style={{ backgroundColor: hex }} />
+                            ))}
+                          </div>
+                        )}
                         <div className="min-w-0">
                           <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
-                            Color Theme
+                            Color Palette
                           </span>
                           <p className="font-bold text-sm text-foreground capitalize truncate">
-                            {colorOptions.find((c) => c.value === selectedColor)?.name || selectedColor}
+                            {getColorLabelForReview()}
                           </p>
                         </div>
                       </div>
@@ -884,7 +1196,7 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
                       <span>Synthesize AI Logo Now</span>
                     </Button>
                     <p className="text-[11px] text-muted-foreground mt-2">
-                      Powered by Pollinations AI • High-Resolution PNG Output
+                      Powered by FLUX.1 [schnell] (Cloudflare Workers AI) • High-Resolution Output
                     </p>
                   </div>
                 </div>

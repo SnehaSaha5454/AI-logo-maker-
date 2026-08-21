@@ -88,7 +88,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // 3. AI Logo Generation via Pollinations AI + DB Persistence
+  // 3. AI Logo Generation via Cloudflare Workers AI (@cf/black-forest-labs/flux-1-schnell) + DB Persistence
   app.post("/api/generate-logo", async (req, res) => {
     try {
       const { prompt, name, description, color, style, designIdea, userId } = req.body;
@@ -99,27 +99,142 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Short clean prompt
-      const shortPrompt = encodeURIComponent(
-        `${prompt}, minimalist logo, modern branding`
-      );
+      const accountId = process.env.CLOUDFLARE_ACCOUNT_ID?.trim();
+      const apiToken = process.env.CLOUDFLARE_API_TOKEN?.trim();
 
-      // Pollinations image URL
-      const pollinationsUrl = `https://image.pollinations.ai/prompt/${shortPrompt}`;
-
-      // Fetch image from Pollinations
-      const imageResponse = await fetch(pollinationsUrl);
-
-      if (!imageResponse.ok) {
-        throw new Error("Failed to fetch generated image from AI service");
+      if (!accountId || !apiToken) {
+        throw new Error(
+          "Cloudflare AI credentials missing. Please set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN in .env"
+        );
       }
 
-      // Convert image to buffer
-      const imageBuffer = await imageResponse.arrayBuffer();
+      const brandName = name?.trim() || "Brand";
+      const brandDescription = description?.trim() || "";
+      const selectedColor = color?.trim() || "ocean-blue";
+      const selectedStyle = style?.trim() || "minimalist";
+      const selectedIdea = designIdea?.trim() || "ai-choice";
 
-      // Convert buffer to base64 Data URL
-      const base64Image = Buffer.from(imageBuffer).toString("base64");
-      const imageUrl = `data:image/png;base64,${base64Image}`;
+      // Style guidelines for strict vector branding aesthetics
+      const styleGuidance: Record<string, string> = {
+        minimalist: "Minimalist geometric vector logo, refined simplicity, clean negative space, timeless corporate branding",
+        "modern-sharp": "Modern sharp geometric emblem, bold precision angles, dynamic polygonal facets, futuristic tech branding",
+        luxury: "High-end luxury vector emblem, premium balanced golden ratio proportions, prestigious brand crest",
+        line: "Single-tone continuous monoline vector graphic, ultra-clean negative space, modern minimalist line art logo",
+        app: "Modern digital app icon glyph, clean rounded geometry, bold recognizable silhouette, high UI scalability",
+        cartoon: "Playful clean 2D vector graphic, bold outlines, friendly characterful geometry, vibrant flat vector art",
+        mascot: "Modern stylized 2D vector mascot emblem, bold iconic silhouette, clean vector character with strong personality",
+        vintage: "Classic vintage vector insignia, retro geometric badge, balanced heritage typography and timeless crest mark",
+        "vintage-text": "Vintage typographic crest logo, harmonious combined vector icon and retro brand text badge"
+      };
+
+      // Color theme guidelines with exact palette mappings
+      const colorGuidance: Record<string, string> = {
+        "ocean-blue": "Ocean Blue harmony (Deep azure #0369A1, royal ocean blue #0284C7, and sky highlights #38BDF8)",
+        emerald: "Emerald harmony (Rich botanical emerald #047857, vibrant jade #059669, and mint #34D399)",
+        purple: "Purple harmony (Royal violet #5B21B6, amethyst #7C3AED, and lavender #C084FC)",
+        gold: "Gold harmony (Warm amber gold #B45309, rich metallic ochre #D97706, and champagne #FDE047)",
+        orange: "Orange harmony (Vibrant sunset saffron #C2410C, tangerine #EA580C, and warm peach #FDBA74)",
+        crimson: "Crimson harmony (Deep ruby crimson #991B1B, scarlet red #DC2626, and rose #FCA5A5)",
+        "black-white": "Monochrome slate & pure white (Deep obsidian slate #0F172A, charcoal #64748B, and pure white #F8FAFC)",
+        "navy-cyan": "Navy & Cyan harmony (Midnight navy #0F172A, deep sapphire #0284C7, and electric cyan #06B6D4)",
+        "pink-purple": "Pink & Purple harmony (Electric magenta rose #DB2777, ultraviolet #7E22CE, and soft blossom #F472B6)",
+        "earth-tones": "Earth Tones harmony (Warm terracotta #78350F, earthy olive slate #57534E, and warm desert sand #D97706)",
+        "ai-recommended": "AI-harmonized professional color palette tailored to the brand personality",
+        blue: "Professional royal blue (#2563EB) and deep navy (#0F172A)",
+        green: "Vibrant emerald green (#059669) and mint (#34D399)",
+        red: "Bold crimson red (#DC2626) and coral (#F87171)",
+        black: "Sleek monochrome black (#0F172A) and crisp charcoal (#334155)",
+      };
+
+      // Design motif guidelines
+      const motifGuidance: Record<string, string> = {
+        "abstract-star": "geometric abstract star motif with sharp multi-point symmetry",
+        galaxy: "stylized cosmic galaxy spiral with elegant flowing vector curves",
+        globe: "modern minimalist interconnected globe icon with clean longitude lines",
+        cosmos: "stylized celestial lettermark symbol with clean orbital geometry",
+        planet: "geometric orbital planet motif with sharp clean vector rings",
+        "ai-choice": "tailored bespoke visual symbol derived directly from the brand vision"
+      };
+
+      // Fresh variation concepts ensuring each generation/regeneration creates a distinct logo concept
+      const variationArchetypes = [
+        "Abstract geometric glyph with clean symmetry",
+        "Precision monoline vector icon with balanced flow",
+        "Bold modular emblem combining clean geometric shapes",
+        "Dynamic intersecting vector forms with sharp precision",
+        "Harmonic circular badge crest with minimalist central icon",
+        "Sleek futuristic iconographic glyph with crisp angular facets",
+        "Refined minimalist monogram emblem with clean initials",
+        "Dual-element interlocking symbol with modern balance"
+      ];
+
+      // Dynamic layout compositions
+      const layoutArrangements = [
+        `Centered composition: prominent standalone icon mark positioned directly above the readable brand name "${brandName}"`,
+        `Stacked composition: bold geometric vector mark centered above clean, balanced typography "${brandName}"`,
+        `Balanced emblem composition: unified vector icon and brand name "${brandName}" in perfect visual equilibrium`
+      ];
+
+      const selectedVariation = variationArchetypes[Math.floor(Math.random() * variationArchetypes.length)];
+      const selectedLayout = layoutArrangements[Math.floor(Math.random() * layoutArrangements.length)];
+      const numericSeed = Math.floor(Math.random() * 10000000);
+
+      const activeStyle = styleGuidance[selectedStyle] || `${selectedStyle} vector logo style`;
+      const activeColor =
+        colorGuidance[selectedColor] ||
+        (selectedColor.toLowerCase().includes("ai-recommended")
+          ? "AI-harmonized professional color palette tailored to the brand personality"
+          : `Bespoke color palette: ${selectedColor}`);
+      const activeMotif = motifGuidance[selectedIdea] || `${selectedIdea} motif`;
+
+      // Concise, information-dense prompt specifically calibrated for FLUX.1-schnell
+      const constructedPrompt = [
+        `Professional 2D vector logo design for brand "${brandName}".`,
+        brandDescription ? `Brand identity: ${brandDescription}.` : "",
+        `Style: ${activeStyle}.`,
+        `Color scheme: ${activeColor} on solid plain white background.`,
+        `Symbol: ${activeMotif}.`,
+        `Composition: ${selectedLayout}.`,
+        `Design concept: ${selectedVariation}.`,
+        `Quality directives: Flat vector graphic design, single standalone centered logo mark, crisp clean outlines, balanced proportions, high contrast, clean modern typography "${brandName}", isolated on pure solid white background.`,
+        `Avoid 3D effects, mockups, drop shadows, perspective tilts, photographic elements, textured backgrounds.`
+      ].filter(Boolean).join(" ");
+
+      const response = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/black-forest-labs/flux-1-schnell`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            prompt: constructedPrompt,
+            steps: 4,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        console.error("Cloudflare Workers AI Error Response:", response.status, errorBody);
+        throw new Error(`Cloudflare AI error (${response.status}): ${errorBody}`);
+      }
+
+      const responseData = (await response.json()) as {
+        result?: { image?: string };
+        success?: boolean;
+        errors?: Array<{ message?: string }>;
+      };
+
+      if (!responseData || !responseData.result || !responseData.result.image) {
+        const errorMsg =
+          responseData?.errors?.[0]?.message ||
+          "No image data returned from Cloudflare Workers AI";
+        throw new Error(errorMsg);
+      }
+
+      const imageUrl = `data:image/jpeg;base64,${responseData.result.image}`;
 
       let savedLogo = null;
 
@@ -131,11 +246,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             userId: parsedUserId,
             imageUrl,
             prompt,
-            name: name || "Custom Logo",
-            description: description || "",
-            color: color || "custom",
-            style: style || "minimalist",
-            designIdea: designIdea || "ai-choice",
+            name: brandName,
+            description: brandDescription,
+            color: selectedColor,
+            style: selectedStyle,
+            designIdea: selectedIdea,
           });
         }
       }
@@ -144,8 +259,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ imageUrl, logo: savedLogo });
     } catch (error) {
       console.error("Logo generation error:", error);
+      let errorMessage = "Failed to generate logo";
+      if (error instanceof Error) {
+        try {
+          const parsed = JSON.parse(error.message);
+          if (parsed?.error?.message) {
+            errorMessage = parsed.error.message;
+          } else if (parsed?.errors?.[0]?.message) {
+            errorMessage = parsed.errors[0].message;
+          } else {
+            errorMessage = error.message;
+          }
+        } catch {
+          errorMessage = error.message;
+        }
+      }
       res.status(500).json({
-        error: error instanceof Error ? error.message : "Failed to generate logo",
+        error: errorMessage,
       });
     }
   });
