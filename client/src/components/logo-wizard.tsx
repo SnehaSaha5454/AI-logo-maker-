@@ -1,55 +1,169 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  Check, 
-  Download, 
-  RefreshCw, 
-  Loader2, 
-  Sparkles, 
-  Copy, 
-  CheckCheck, 
-  Lightbulb, 
-  Layers, 
-  Palette, 
-  FileText, 
+import {
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  Download,
+  RefreshCw,
+  Loader2,
+  Sparkles,
+  Copy,
+  CheckCheck,
+  Lightbulb,
+  Layers,
+  Palette,
+  FileText,
   Wand2,
-  RotateCcw
+  RotateCcw,
+  AlertCircle,
+  Edit3,
+  Sun,
+  Moon,
+  Grid,
+  Clock,
 } from "lucide-react";
 import { colorOptions, logoStyles, designIdeas, type LogoHistoryItem } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 
 interface LogoWizardProps {
   onLogoGenerated: (logo: LogoHistoryItem) => void;
-  userId: string;
+  userId: string | number;
 }
 
 const GENERATION_STAGES = [
-  "Synthesizing creative prompt & branding context...",
-  "Querying Pollinations AI neural image engine...",
-  "Rendering minimalist vector shapes & color gradients...",
-  "Applying typography aesthetics & finalizing high-res logo...",
+  "Analyzing brand identity & vision...",
+  "Synthesizing custom vector prompt...",
+  "Generating neural vectors with Pollinations AI...",
+  "Harmonizing color palette & shapes...",
+  "Finalizing high-resolution logo render...",
 ];
 
+const getStorageKey = (uid?: string | number) => `logo_wizard_draft_${uid || "guest"}`;
+
+const getSavedDraft = (uid?: string | number) => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(getStorageKey(uid));
+    if (raw) {
+      return JSON.parse(raw);
+    }
+  } catch (err) {
+    console.warn("Failed to read wizard draft:", err);
+  }
+  return null;
+};
+
+const clearSavedDraft = (uid?: string | number) => {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(getStorageKey(uid));
+  } catch (err) {
+    console.warn("Failed to clear wizard draft:", err);
+  }
+};
+
 export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
-  const [currentStep, setCurrentStep] = useState(1);
-  const [logoName, setLogoName] = useState("");
-  const [description, setDescription] = useState("");
-  const [selectedColor, setSelectedColor] = useState("");
-  const [selectedStyle, setSelectedStyle] = useState("");
-  const [selectedDesignIdea, setSelectedDesignIdea] = useState("");
+  const [currentStep, setCurrentStep] = useState<number>(() => {
+    const draft = getSavedDraft(userId);
+    if (draft && typeof draft.currentStep === "number" && draft.currentStep >= 1 && draft.currentStep <= 6) {
+      return draft.currentStep;
+    }
+    return 1;
+  });
+  const [logoName, setLogoName] = useState<string>(() => {
+    const draft = getSavedDraft(userId);
+    return draft && typeof draft.logoName === "string" ? draft.logoName : "";
+  });
+  const [description, setDescription] = useState<string>(() => {
+    const draft = getSavedDraft(userId);
+    return draft && typeof draft.description === "string" ? draft.description : "";
+  });
+  const [selectedColor, setSelectedColor] = useState<string>(() => {
+    const draft = getSavedDraft(userId);
+    return draft && typeof draft.selectedColor === "string" ? draft.selectedColor : "";
+  });
+  const [selectedStyle, setSelectedStyle] = useState<string>(() => {
+    const draft = getSavedDraft(userId);
+    return draft && typeof draft.selectedStyle === "string" ? draft.selectedStyle : "";
+  });
+  const [selectedDesignIdea, setSelectedDesignIdea] = useState<string>(() => {
+    const draft = getSavedDraft(userId);
+    return draft && typeof draft.selectedDesignIdea === "string" ? draft.selectedDesignIdea : "";
+  });
   const [generatedImage, setGeneratedImage] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
   const [loadingStageIndex, setLoadingStageIndex] = useState(0);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [lastPrompt, setLastPrompt] = useState("");
   const [copiedPrompt, setCopiedPrompt] = useState(false);
+  const [previewBg, setPreviewBg] = useState<"light" | "dark" | "checkered">("light");
   const { toast } = useToast();
+
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Restore saved draft when userId changes
+  useEffect(() => {
+    if (!userId) return;
+    const draft = getSavedDraft(userId);
+    if (draft) {
+      if (typeof draft.currentStep === "number" && draft.currentStep >= 1 && draft.currentStep <= 6) {
+        setCurrentStep(draft.currentStep);
+      }
+      if (typeof draft.logoName === "string") setLogoName(draft.logoName);
+      if (typeof draft.description === "string") setDescription(draft.description);
+      if (typeof draft.selectedColor === "string") setSelectedColor(draft.selectedColor);
+      if (typeof draft.selectedStyle === "string") setSelectedStyle(draft.selectedStyle);
+      if (typeof draft.selectedDesignIdea === "string") setSelectedDesignIdea(draft.selectedDesignIdea);
+    }
+  }, [userId]);
+
+  // Persist wizard progress draft to localStorage on any step / input change
+  useEffect(() => {
+    if (isGenerating || generatedImage) return;
+
+    if (
+      currentStep === 1 &&
+      !logoName &&
+      !description &&
+      !selectedColor &&
+      !selectedStyle &&
+      !selectedDesignIdea
+    ) {
+      clearSavedDraft(userId);
+      return;
+    }
+
+    try {
+      const draft = {
+        currentStep,
+        logoName,
+        description,
+        selectedColor,
+        selectedStyle,
+        selectedDesignIdea,
+      };
+      localStorage.setItem(getStorageKey(userId), JSON.stringify(draft));
+    } catch (err) {
+      console.warn("Failed to save wizard draft:", err);
+    }
+  }, [
+    userId,
+    currentStep,
+    logoName,
+    description,
+    selectedColor,
+    selectedStyle,
+    selectedDesignIdea,
+    isGenerating,
+    generatedImage,
+  ]);
 
   const steps = [
     { number: 1, title: "Name", subtitle: "Brand title" },
@@ -57,29 +171,48 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
     { number: 3, title: "Colors", subtitle: "Color theme" },
     { number: 4, title: "Style", subtitle: "Archetype" },
     { number: 5, title: "Idea", subtitle: "Core concept" },
-    { number: 6, title: "Studio", subtitle: "Generate" },
+    { number: 6, title: "Studio", subtitle: "Review & Build" },
   ];
 
-  // Rotate loading stage messages during generation
+  // Rotate loading stage messages & track elapsed time during generation
   useEffect(() => {
     if (!isGenerating) {
       setLoadingStageIndex(0);
+      setElapsedSeconds(0);
+      if (timerRef.current) clearInterval(timerRef.current);
       return;
     }
-    const interval = setInterval(() => {
+
+    const stageInterval = setInterval(() => {
       setLoadingStageIndex((prev) => (prev + 1) % GENERATION_STAGES.length);
-    }, 2800);
-    return () => clearInterval(interval);
+    }, 2400);
+
+    const timeInterval = setInterval(() => {
+      setElapsedSeconds((prev) => prev + 1);
+    }, 1000);
+
+    timerRef.current = timeInterval;
+
+    return () => {
+      clearInterval(stageInterval);
+      clearInterval(timeInterval);
+    };
   }, [isGenerating]);
 
   const canProceed = () => {
     switch (currentStep) {
-      case 1: return logoName.trim().length > 0;
-      case 2: return description.trim().length >= 10;
-      case 3: return selectedColor !== "";
-      case 4: return selectedStyle !== "";
-      case 5: return selectedDesignIdea !== "";
-      default: return true;
+      case 1:
+        return logoName.trim().length > 0;
+      case 2:
+        return description.trim().length >= 10;
+      case 3:
+        return selectedColor !== "";
+      case 4:
+        return selectedStyle !== "";
+      case 5:
+        return selectedDesignIdea !== "";
+      default:
+        return true;
     }
   };
 
@@ -87,9 +220,10 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
     if (!canProceed()) {
       toast({
         title: "Please complete this step",
-        description: currentStep === 2 
-          ? "Please provide at least 10 characters for your description." 
-          : "Select or fill in the required option to proceed.",
+        description:
+          currentStep === 2
+            ? "Please provide at least 10 characters for your description."
+            : "Select or fill in the required option to proceed.",
         variant: "destructive",
       });
       return;
@@ -116,26 +250,49 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
   };
 
   const handleRegenerate = async () => {
-    if (lastPrompt) {
-      await generateLogo(lastPrompt);
-    } else {
-      handleGenerate();
-    }
+    const promptToUse = lastPrompt || buildPrompt();
+    await generateLogo(promptToUse);
   };
 
   const handleReset = () => {
+    clearSavedDraft(userId);
+    setLogoName("");
+    setDescription("");
+    setSelectedColor("");
+    setSelectedStyle("");
+    setSelectedDesignIdea("");
     setGeneratedImage("");
+    setGenerationError(null);
+    setLastPrompt("");
     setCurrentStep(1);
   };
 
   const generateLogo = async (prompt: string) => {
     setIsGenerating(true);
+    setGenerationError(null);
+
     try {
-      const response = await apiRequest("POST", "/api/generate-logo", { prompt });
-      const data = (await response.json()) as { imageUrl: string };
+      const response = await apiRequest("POST", "/api/generate-logo", {
+        prompt,
+        name: logoName,
+        description,
+        color: selectedColor,
+        style: selectedStyle,
+        designIdea: selectedDesignIdea,
+        userId,
+      });
+      const data = (await response.json()) as { imageUrl: string; logo?: LogoHistoryItem };
+
+      if (!data || !data.imageUrl) {
+        throw new Error("No image data received from the generator.");
+      }
+
+      // Successful generation: clear saved wizard draft state
+      clearSavedDraft(userId);
+
       setGeneratedImage(data.imageUrl);
 
-      const newLogo: LogoHistoryItem = {
+      const newLogo: LogoHistoryItem = data.logo || {
         id: crypto.randomUUID(),
         userId,
         imageUrl: data.imageUrl,
@@ -152,12 +309,15 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
 
       toast({
         title: "✨ Logo generated successfully!",
-        description: "Your custom logo is ready to download in high-resolution.",
+        description: "Your custom logo is ready to preview and download.",
       });
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to generate logo. Please try again.";
+      setGenerationError(errorMessage);
       toast({
         title: "Generation failed",
-        description: error instanceof Error ? error.message : "Failed to generate logo. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -176,8 +336,8 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
     document.body.removeChild(link);
 
     toast({
-      title: "Download initiated",
-      description: `Saved ${logoName}_logo.png to your downloads.`,
+      title: "Download started",
+      description: `Saved ${logoName}_logo.png to your device.`,
     });
   };
 
@@ -187,8 +347,8 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
     setCopiedPrompt(true);
     setTimeout(() => setCopiedPrompt(false), 2000);
     toast({
-      title: "Prompt copied to clipboard",
-      description: "You can reuse or save this prompt anytime.",
+      title: "Prompt copied",
+      description: "Full AI generation prompt copied to clipboard.",
     });
   };
 
@@ -201,7 +361,6 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
 
   return (
     <div id="wizard-section" className="space-y-6">
-      
       {/* Modern Stepper Indicator */}
       <div className="w-full max-w-4xl mx-auto px-2">
         <div className="flex items-center justify-between relative">
@@ -248,7 +407,11 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
                 <div className="text-center mt-2 hidden md:block">
                   <p
                     className={`text-xs font-semibold ${
-                      isCurrent ? "text-foreground" : isCompleted ? "text-foreground/80" : "text-muted-foreground"
+                      isCurrent
+                        ? "text-foreground"
+                        : isCompleted
+                        ? "text-foreground/80"
+                        : "text-muted-foreground"
                     }`}
                   >
                     {step.title}
@@ -264,14 +427,13 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
       {/* Main Step Card */}
       <Card className="rounded-2xl shadow-xl shadow-orange-500/5 glass-card p-6 sm:p-10 max-w-4xl mx-auto min-h-[520px] flex flex-col justify-between border border-border/80 relative">
         <div className="flex-1">
-          
           {/* STEP 1: Logo Name */}
           {currentStep === 1 && (
             <div className="space-y-6 animate-fade-in text-left">
               <div className="space-y-1">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-500/10 text-orange-700 mb-1">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-500/10 text-orange-700 dark:text-orange-400 mb-1">
                   <Sparkles className="w-3 h-3 text-orange-500" />
-                  Step 1 of 5
+                  Step 1 of 6
                 </div>
                 <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
                   What is your brand or logo name?
@@ -282,7 +444,10 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
               </div>
 
               <div className="space-y-3 pt-2">
-                <Label htmlFor="logo-name" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                <Label
+                  htmlFor="logo-name"
+                  className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
+                >
                   Brand Name / Title
                 </Label>
                 <div className="relative">
@@ -329,9 +494,9 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
           {currentStep === 2 && (
             <div className="space-y-6 animate-fade-in text-left">
               <div className="space-y-1">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-500/10 text-orange-700 mb-1">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-500/10 text-orange-700 dark:text-orange-400 mb-1">
                   <FileText className="w-3 h-3 text-orange-500" />
-                  Step 2 of 5
+                  Step 2 of 6
                 </div>
                 <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
                   Describe your logo vision
@@ -343,7 +508,10 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
 
               <div className="space-y-2 pt-1">
                 <div className="flex justify-between items-center">
-                  <Label htmlFor="description" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  <Label
+                    htmlFor="description"
+                    className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
+                  >
                     Brand Description & Vision
                   </Label>
                   <span
@@ -391,9 +559,9 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
           {currentStep === 3 && (
             <div className="space-y-6 animate-fade-in text-left">
               <div className="space-y-1">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-500/10 text-orange-700 mb-1">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-500/10 text-orange-700 dark:text-orange-400 mb-1">
                   <Palette className="w-3 h-3 text-orange-500" />
-                  Step 3 of 5
+                  Step 3 of 6
                 </div>
                 <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
                   Choose your color palette
@@ -436,8 +604,10 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
                         style={{ backgroundColor: color.hex }}
                       />
                       <span className="text-sm font-bold text-foreground">{color.name}</span>
-                      <span className="text-[11px] text-muted-foreground font-mono mt-0.5">{color.hex}</span>
-                      <span className="text-[10px] text-orange-600/80 font-medium mt-1">
+                      <span className="text-[11px] text-muted-foreground font-mono mt-0.5">
+                        {color.hex}
+                      </span>
+                      <span className="text-[10px] text-orange-600/80 dark:text-orange-400 font-medium mt-1">
                         {colorTraits[color.value] || "Custom"}
                       </span>
                     </button>
@@ -451,9 +621,9 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
           {currentStep === 4 && (
             <div className="space-y-6 animate-fade-in text-left">
               <div className="space-y-1">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-500/10 text-orange-700 mb-1">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-500/10 text-orange-700 dark:text-orange-400 mb-1">
                   <Layers className="w-3 h-3 text-orange-500" />
-                  Step 4 of 5
+                  Step 4 of 6
                 </div>
                 <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
                   Choose your design archetype
@@ -486,7 +656,9 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground leading-relaxed">{style.description}</p>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        {style.description}
+                      </p>
                     </button>
                   );
                 })}
@@ -498,9 +670,9 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
           {currentStep === 5 && (
             <div className="space-y-6 animate-fade-in text-left">
               <div className="space-y-1">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-500/10 text-orange-700 mb-1">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-500/10 text-orange-700 dark:text-orange-400 mb-1">
                   <Lightbulb className="w-3 h-3 text-orange-500" />
-                  Step 5 of 5
+                  Step 5 of 6
                 </div>
                 <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
                   Select your core motif or idea
@@ -524,7 +696,7 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
                         isAIChoice
                           ? isSelected
                             ? "border-orange-500 gradient-saffron-pink text-white shadow-md ring-4 ring-orange-500/20"
-                            : "border-orange-300 bg-orange-500/10 text-foreground hover:bg-orange-500/15"
+                            : "border-orange-300 dark:border-orange-700 bg-orange-500/10 text-foreground hover:bg-orange-500/15"
                           : isSelected
                           ? "border-orange-500 bg-orange-500/5 shadow-sm ring-2 ring-orange-500/15"
                           : "border-border/80 bg-card hover:border-orange-500/40 hover:shadow-xs"
@@ -541,7 +713,13 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
                             : "border-muted-foreground/40 bg-card"
                         }`}
                       >
-                        {isSelected && <div className={`w-2 h-2 rounded-full ${isAIChoice ? "bg-orange-600" : "bg-white"}`} />}
+                        {isSelected && (
+                          <div
+                            className={`w-2 h-2 rounded-full ${
+                              isAIChoice ? "bg-orange-600" : "bg-white"
+                            }`}
+                          />
+                        )}
                       </div>
 
                       <div className="flex-1 min-w-0">
@@ -578,70 +756,143 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
             </div>
           )}
 
-          {/* STEP 6: Studio / Generate & Results */}
+          {/* STEP 6: Studio / Final Review, Generator & Results */}
           {currentStep === 6 && (
-            <div className="space-y-6 animate-fade-in text-center">
-              
-              {/* Ready State / Pre-generation Summary */}
-              {!generatedImage && !isGenerating && (
-                <div className="space-y-6 max-w-xl mx-auto py-4">
-                  <div className="space-y-2">
-                    <div className="w-14 h-14 rounded-2xl gradient-saffron-pink mx-auto flex items-center justify-center text-white shadow-lg shadow-orange-500/25 mb-2">
-                      <Wand2 className="w-7 h-7" />
+            <div className="space-y-6 animate-fade-in">
+              {/* 1. Pre-Generation Final Review State */}
+              {!generatedImage && !isGenerating && !generationError && (
+                <div className="space-y-6 max-w-xl mx-auto py-2">
+                  <div className="space-y-1.5 text-center">
+                    <div className="w-12 h-12 rounded-2xl gradient-saffron-pink mx-auto flex items-center justify-center text-white shadow-md shadow-orange-500/20 mb-2">
+                      <Wand2 className="w-6 h-6" />
                     </div>
                     <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
-                      Ready to synthesize your logo
+                      Final Review & Generate
                     </h2>
-                    <p className="text-sm text-muted-foreground">
-                      Review your customized parameters before unleashing neural generation.
+                    <p className="text-xs text-muted-foreground">
+                      Review your customized branding configuration. Click any item to modify before generating.
                     </p>
                   </div>
 
-                  {/* Summary Parameter Pill Grid */}
-                  <div className="grid grid-cols-2 gap-2.5 p-4 rounded-2xl bg-muted/60 border border-border/80 text-left text-xs">
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] font-bold uppercase text-muted-foreground">Logo Name</span>
-                      <p className="font-bold text-foreground truncate">{logoName}</p>
+                  {/* Interactive Review Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
+                    {/* Item 1: Name */}
+                    <div className="p-3.5 rounded-xl bg-card border border-border/80 shadow-xs flex items-center justify-between gap-3 group">
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                          Brand Name
+                        </span>
+                        <p className="font-bold text-sm text-foreground truncate">{logoName}</p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setCurrentStep(1)}
+                        className="w-7 h-7 rounded-lg text-muted-foreground hover:text-foreground shrink-0 opacity-80 group-hover:opacity-100"
+                        title="Edit brand name"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </Button>
                     </div>
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] font-bold uppercase text-muted-foreground">Color Theme</span>
-                      <p className="font-bold text-foreground capitalize">{selectedColor || "Auto"}</p>
+
+                    {/* Item 2: Color */}
+                    <div className="p-3.5 rounded-xl bg-card border border-border/80 shadow-xs flex items-center justify-between gap-3 group">
+                      <div className="min-w-0 flex items-center gap-2.5">
+                        <div
+                          className="w-5 h-5 rounded-md shrink-0 border border-black/10 shadow-xs"
+                          style={{
+                            backgroundColor:
+                              colorOptions.find((c) => c.value === selectedColor)?.hex || "#f97316",
+                          }}
+                        />
+                        <div className="min-w-0">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                            Color Theme
+                          </span>
+                          <p className="font-bold text-sm text-foreground capitalize truncate">
+                            {colorOptions.find((c) => c.value === selectedColor)?.name || selectedColor}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setCurrentStep(3)}
+                        className="w-7 h-7 rounded-lg text-muted-foreground hover:text-foreground shrink-0 opacity-80 group-hover:opacity-100"
+                        title="Edit color theme"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </Button>
                     </div>
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] font-bold uppercase text-muted-foreground">Archetype</span>
-                      <p className="font-bold text-foreground capitalize">
-                        {logoStyles.find((s) => s.id === selectedStyle)?.name || selectedStyle}
-                      </p>
+
+                    {/* Item 3: Style Archetype */}
+                    <div className="p-3.5 rounded-xl bg-card border border-border/80 shadow-xs flex items-center justify-between gap-3 group">
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                          Style Archetype
+                        </span>
+                        <p className="font-bold text-sm text-foreground truncate">
+                          {logoStyles.find((s) => s.id === selectedStyle)?.name || selectedStyle}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setCurrentStep(4)}
+                        className="w-7 h-7 rounded-lg text-muted-foreground hover:text-foreground shrink-0 opacity-80 group-hover:opacity-100"
+                        title="Edit style archetype"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </Button>
                     </div>
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] font-bold uppercase text-muted-foreground">Design Idea</span>
-                      <p className="font-bold text-foreground truncate">
-                        {designIdeas.find((d) => d.id === selectedDesignIdea)?.name || selectedDesignIdea}
-                      </p>
+
+                    {/* Item 4: Motif Idea */}
+                    <div className="p-3.5 rounded-xl bg-card border border-border/80 shadow-xs flex items-center justify-between gap-3 group">
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                          Motif / Idea
+                        </span>
+                        <p className="font-bold text-sm text-foreground truncate">
+                          {designIdeas.find((d) => d.id === selectedDesignIdea)?.name || selectedDesignIdea}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setCurrentStep(5)}
+                        className="w-7 h-7 rounded-lg text-muted-foreground hover:text-foreground shrink-0 opacity-80 group-hover:opacity-100"
+                        title="Edit motif idea"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </Button>
                     </div>
                   </div>
 
-                  {/* Generate Button */}
-                  <div className="pt-2">
+                  {/* Primary Generate Button */}
+                  <div className="pt-2 text-center">
                     <Button
                       onClick={handleGenerate}
                       size="lg"
-                      className="w-full sm:w-auto h-14 px-10 text-base font-bold gradient-saffron-pink text-white shadow-xl shadow-orange-500/25 hover:opacity-95 transition-all rounded-xl gap-2.5"
+                      className="w-full sm:w-auto h-14 px-10 text-base font-bold gradient-saffron-pink text-white shadow-xl shadow-orange-500/25 hover:opacity-95 transition-all rounded-xl gap-2.5 btn-press"
                       data-testid="button-generate"
                     >
                       <Sparkles className="w-5 h-5 animate-spin" style={{ animationDuration: "3s" }} />
-                      <span>Generate AI Logo Now</span>
+                      <span>Synthesize AI Logo Now</span>
                     </Button>
                     <p className="text-[11px] text-muted-foreground mt-2">
-                      Zero cost • Powered by Pollinations AI • High-Res PNG
+                      Powered by Pollinations AI • High-Resolution PNG Output
                     </p>
                   </div>
                 </div>
               )}
 
-              {/* Generating Loader State */}
+              {/* 2. Loading State with Progress Messaging & Elapsed Time */}
               {isGenerating && (
-                <div className="flex flex-col items-center justify-center py-12 space-y-6 max-w-md mx-auto">
+                <div className="flex flex-col items-center justify-center py-10 space-y-6 max-w-md mx-auto text-center">
                   <div className="relative">
                     <div className="w-20 h-20 rounded-full gradient-saffron-pink/20 animate-ping absolute inset-0" />
                     <div className="w-20 h-20 rounded-2xl gradient-saffron-pink flex items-center justify-center text-white shadow-xl shadow-orange-500/30 relative z-10">
@@ -651,44 +902,155 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
 
                   <div className="space-y-2">
                     <h3 className="text-xl font-bold text-foreground">
-                      Designing your logo...
+                      Synthesizing "{logoName}" Logo
                     </h3>
-                    <p className="text-xs font-medium text-orange-600 min-h-[20px] transition-all">
+
+                    {/* Progress Bar Glow */}
+                    <div className="w-64 h-1.5 bg-muted rounded-full mx-auto overflow-hidden relative">
+                      <div className="h-full bg-gradient-to-r from-orange-500 to-pink-500 rounded-full animate-pulse w-3/4" />
+                    </div>
+
+                    <p className="text-xs font-semibold text-orange-600 dark:text-orange-400 min-h-[22px] transition-all">
                       {GENERATION_STAGES[loadingStageIndex]}
                     </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      This usually takes between 3 to 10 seconds.
-                    </p>
+
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium bg-muted/80 text-muted-foreground">
+                      <Clock className="w-3 h-3" />
+                      <span>{elapsedSeconds}s elapsed</span>
+                    </div>
+
+                    {elapsedSeconds > 10 && (
+                      <p className="text-[11px] text-muted-foreground/80 animate-fade-in">
+                        Still rendering... complex vectors can take a few extra seconds during high traffic.
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
 
-              {/* Result State */}
-              {generatedImage && !isGenerating && (
-                <div className="space-y-6 max-w-lg mx-auto animate-fade-in">
-                  
-                  {/* Generated Image Showcase Card */}
-                  <div className="relative group rounded-2xl overflow-hidden bg-card border-2 border-orange-500/30 shadow-2xl p-4">
-                    <div className="aspect-square w-full max-w-[340px] mx-auto rounded-xl overflow-hidden bg-white/95 shadow-inner flex items-center justify-center">
-                      <img
-                        src={generatedImage}
-                        alt={`Generated logo for ${logoName}`}
-                        className="w-full h-full object-contain hover:scale-105 transition-transform duration-500"
-                        data-testid="img-generated-logo"
-                      />
+              {/* 3. Error Handling State with Retry Option */}
+              {generationError && !isGenerating && (
+                <div className="space-y-6 max-w-md mx-auto py-6 animate-fade-in text-center">
+                  <div className="p-6 rounded-2xl bg-destructive/10 border border-destructive/30 space-y-3">
+                    <div className="w-12 h-12 rounded-xl bg-destructive/20 text-destructive mx-auto flex items-center justify-center">
+                      <AlertCircle className="w-6 h-6" />
                     </div>
-                    
-                    {/* Header badge */}
-                    <div className="absolute top-6 left-6 px-3 py-1 rounded-full text-[11px] font-bold gradient-saffron-pink text-white shadow-md">
-                      ✨ Logo Ready
+                    <div className="space-y-1">
+                      <h3 className="text-base font-bold text-destructive">
+                        Generation Failed
+                      </h3>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        {generationError}
+                      </p>
                     </div>
                   </div>
 
-                  {/* Actions Grid */}
+                  <div className="flex flex-wrap justify-center gap-3">
+                    <Button
+                      onClick={handleRegenerate}
+                      className="h-11 px-6 font-bold gradient-saffron-pink text-white shadow-md rounded-xl gap-2 text-xs btn-press"
+                      data-testid="button-retry-generate"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      Retry Generation
+                    </Button>
+                    <Button
+                      onClick={() => setGenerationError(null)}
+                      variant="outline"
+                      className="h-11 px-5 text-xs font-semibold rounded-xl border-border btn-press"
+                    >
+                      Back to Review
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* 4. Completed Logo Result State */}
+              {generatedImage && !isGenerating && (
+                <div className="space-y-6 max-w-xl mx-auto animate-fade-in text-center">
+                  {/* Canvas Showcase Card */}
+                  <div className="relative group rounded-3xl overflow-hidden bg-card border-2 border-orange-500/30 shadow-2xl p-4 sm:p-6 space-y-4">
+                    {/* Top Canvas Toolbar */}
+                    <div className="flex items-center justify-between gap-2 px-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold gradient-saffron-pink text-white shadow-xs">
+                          ✨ Ready
+                        </span>
+                        <span className="text-xs font-bold text-foreground truncate max-w-[140px]">
+                          {logoName}
+                        </span>
+                      </div>
+
+                      {/* Canvas Background Preview Switcher */}
+                      <div className="flex items-center gap-1 p-1 rounded-lg bg-muted/80 border border-border/60 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewBg("light")}
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all flex items-center gap-1 btn-press ${
+                            previewBg === "light"
+                              ? "bg-card text-foreground shadow-2xs"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                          title="Preview on light background"
+                        >
+                          <Sun className="w-3 h-3" />
+                          <span className="hidden sm:inline">Light</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setPreviewBg("dark")}
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all flex items-center gap-1 btn-press ${
+                            previewBg === "dark"
+                              ? "bg-card text-foreground shadow-2xs"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                          title="Preview on dark background"
+                        >
+                          <Moon className="w-3 h-3" />
+                          <span className="hidden sm:inline">Dark</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setPreviewBg("checkered")}
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all flex items-center gap-1 btn-press ${
+                            previewBg === "checkered"
+                              ? "bg-card text-foreground shadow-2xs"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                          title="Preview on transparent grid"
+                        >
+                          <Grid className="w-3 h-3" />
+                          <span className="hidden sm:inline">Grid</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Image Preview Box with Selected Background */}
+                    <div
+                      className={`aspect-square w-full max-w-[360px] mx-auto rounded-2xl overflow-hidden border border-border/80 shadow-inner flex items-center justify-center p-3 transition-colors duration-300 ${
+                        previewBg === "light"
+                          ? "bg-white"
+                          : previewBg === "dark"
+                          ? "bg-slate-950"
+                          : "bg-dot-pattern bg-muted/40"
+                      }`}
+                    >
+                      <img
+                        src={generatedImage}
+                        alt={`Generated logo for ${logoName}`}
+                        className="w-full h-full object-contain hover:scale-105 transition-transform duration-500 rounded-xl"
+                        data-testid="img-generated-logo"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Actions Bar */}
                   <div className="flex flex-wrap items-center justify-center gap-3">
                     <Button
                       onClick={handleDownload}
-                      className="h-12 px-6 font-bold gradient-saffron-pink text-white shadow-md shadow-orange-500/20 hover:opacity-95 rounded-xl gap-2"
+                      className="h-12 px-6 font-bold gradient-saffron-pink text-white shadow-md shadow-orange-500/20 hover:opacity-95 rounded-xl gap-2 text-xs btn-press"
                       data-testid="button-download"
                     >
                       <Download className="w-4 h-4" />
@@ -698,7 +1060,7 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
                     <Button
                       onClick={handleRegenerate}
                       variant="outline"
-                      className="h-12 px-5 font-semibold border-border hover:bg-muted rounded-xl gap-2"
+                      className="h-12 px-5 font-semibold border-border hover:bg-muted rounded-xl gap-2 text-xs btn-press"
                       disabled={isGenerating}
                       data-testid="button-regenerate"
                     >
@@ -710,19 +1072,23 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
                       onClick={handleCopyPrompt}
                       variant="ghost"
                       size="icon"
-                      className="h-12 w-12 rounded-xl text-muted-foreground hover:text-foreground"
+                      className="h-12 w-12 rounded-xl text-muted-foreground hover:text-foreground btn-press"
                       title="Copy full AI prompt"
                     >
-                      {copiedPrompt ? <CheckCheck className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                      {copiedPrompt ? (
+                        <CheckCheck className="w-4 h-4 text-emerald-600" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
                     </Button>
 
                     <Button
                       onClick={handleReset}
                       variant="ghost"
-                      className="h-12 px-4 text-xs font-semibold text-muted-foreground hover:text-foreground gap-1.5"
+                      className="h-12 px-4 text-xs font-semibold text-muted-foreground hover:text-foreground gap-1.5 btn-press"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
-                      Create Another
+                      Start New
                     </Button>
                   </div>
                 </div>
@@ -739,7 +1105,7 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
               onClick={handlePrevious}
               variant="outline"
               disabled={currentStep === 1}
-              className="h-11 px-5 gap-1.5 rounded-xl text-xs font-bold border-border"
+              className="h-11 px-5 gap-1.5 rounded-xl text-xs font-bold border-border btn-press"
               data-testid="button-previous"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -747,17 +1113,17 @@ export function LogoWizard({ onLogoGenerated, userId }: LogoWizardProps) {
             </Button>
 
             <div className="text-xs text-muted-foreground font-medium hidden sm:block">
-              Step {currentStep} of 5
+              Step {currentStep} of 6
             </div>
 
             <Button
               type="button"
               onClick={handleNext}
               disabled={!canProceed()}
-              className="h-11 px-6 gap-1.5 gradient-saffron-pink text-white font-bold shadow-md shadow-orange-500/20 hover:opacity-95 rounded-xl text-xs"
+              className="h-11 px-6 gap-1.5 gradient-saffron-pink text-white font-bold shadow-md shadow-orange-500/20 hover:opacity-95 rounded-xl text-xs btn-press"
               data-testid="button-continue"
             >
-              <span>{currentStep === 5 ? "Go to Studio" : "Continue"}</span>
+              <span>{currentStep === 5 ? "Go to Final Review" : "Continue"}</span>
               <ChevronRight className="w-4 h-4" />
             </Button>
           </div>

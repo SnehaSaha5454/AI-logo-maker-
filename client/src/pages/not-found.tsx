@@ -18,7 +18,7 @@ export default function NotFound() {
         </div>
         <div>
           <Link href="/">
-            <Button className="h-11 px-6 text-xs font-bold gradient-saffron-pink text-white shadow-md shadow-orange-500/20 rounded-xl gap-2">
+            <Button className="h-11 px-6 text-xs font-bold gradient-saffron-pink text-white shadow-md shadow-orange-500/20 rounded-xl gap-2 btn-press">
               <Home className="w-4 h-4" />
               Return to Studio
             </Button>

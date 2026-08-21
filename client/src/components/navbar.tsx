@@ -1,6 +1,7 @@
-import { LogOut, Sparkles, Moon, Wand2, History } from "lucide-react";
+import { LogOut, Sparkles, Moon, Sun, Wand2, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useTheme } from "@/hooks/use-theme";
 import type { User } from "@shared/schema";
 
 interface NavbarProps {
@@ -10,6 +11,8 @@ interface NavbarProps {
 }
 
 export function Navbar({ currentUser, onLogout, historyCount = 0 }: NavbarProps) {
+  const { resolvedTheme, toggleTheme } = useTheme();
+
   const getInitials = (name: string) => {
     return name ? name.slice(0, 2).toUpperCase() : "U";
   };
@@ -23,16 +26,11 @@ export function Navbar({ currentUser, onLogout, historyCount = 0 }: NavbarProps)
             <Sparkles className="w-5 h-5" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xl font-bold tracking-tight gradient-text-saffron-pink">
-                LogoMind AI
-              </span>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-orange-500/10 text-orange-600 border border-orange-500/20">
-                PRO
-              </span>
-            </div>
+            <span className="text-xl font-bold tracking-tight gradient-text-saffron-pink">
+              LogoMind AI
+            </span>
             <p className="text-[11px] text-muted-foreground hidden sm:block">
-              AI-Powered Neural Logo Generator
+              AI-Powered Logo Generator
             </p>
           </div>
         </div>
@@ -62,22 +60,28 @@ export function Navbar({ currentUser, onLogout, historyCount = 0 }: NavbarProps)
 
         {/* Right Actions */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Theme Toggle Placeholder (Upcoming) */}
+          {/* Active Theme Toggle Button */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="w-9 h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 relative"
-                aria-label="Toggle Theme (Upcoming)"
+                onClick={toggleTheme}
+                className="w-9 h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all relative btn-press"
+                aria-label={`Switch to ${resolvedTheme === "dark" ? "light" : "dark"} theme`}
+                data-testid="button-theme-toggle"
               >
-                <Moon className="w-4 h-4" />
-                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-orange-500 ring-2 ring-background" />
+                {resolvedTheme === "dark" ? (
+                  <Sun className="w-4 h-4 text-amber-400 animate-fade-in" />
+                ) : (
+                  <Moon className="w-4 h-4 text-foreground/80 animate-fade-in" />
+                )}
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">
-              <p className="font-semibold">Dark mode</p>
-              <p className="text-muted-foreground">Upcoming in next release</p>
+              <p className="font-semibold">
+                {resolvedTheme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
+              </p>
             </TooltipContent>
           </Tooltip>
 
@@ -90,7 +94,7 @@ export function Navbar({ currentUser, onLogout, historyCount = 0 }: NavbarProps)
               <p className="text-xs font-semibold text-foreground truncate max-w-[100px]">
                 {currentUser.username}
               </p>
-              <p className="text-[10px] text-emerald-600 font-medium flex items-center gap-1">
+              <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
                 Active
               </p>
@@ -102,7 +106,7 @@ export function Navbar({ currentUser, onLogout, historyCount = 0 }: NavbarProps)
             variant="outline"
             size="sm"
             onClick={onLogout}
-            className="h-9 px-3 gap-1.5 border-border hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-all rounded-lg text-xs font-medium"
+            className="h-9 px-3 gap-1.5 border-border hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-all rounded-lg text-xs font-medium btn-press"
             data-testid="button-logout"
           >
             <LogOut className="w-3.5 h-3.5" />

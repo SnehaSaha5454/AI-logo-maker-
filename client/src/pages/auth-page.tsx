@@ -8,9 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
-import { Sparkles, Wand2, Shield, CheckCircle2, Lock, Mail, User as UserIcon, ArrowRight, Heart } from "lucide-react";
+import { Sparkles, Wand2, Shield, CheckCircle2, Lock, Mail, User as UserIcon, ArrowRight, Heart, Sun, Moon } from "lucide-react";
+import { useTheme } from "@/hooks/use-theme";
 
 export default function AuthPage() {
+  const { resolvedTheme, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<"login" | "register">("login");
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -25,61 +27,92 @@ export default function AuthPage() {
     defaultValues: { email: "", username: "", password: "" },
   });
 
-  const handleLogin = (data: LoginData) => {
-    const usersJson = localStorage.getItem("users");
-    const users: User[] = usersJson ? JSON.parse(usersJson) : [];
-    
-    const user = users.find(u => u.email === data.email && u.password === data.password);
-    
-    if (user) {
-      localStorage.setItem("currentUser", JSON.stringify(user));
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleLogin = async (data: LoginData) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Invalid email or password");
+      }
+
+      localStorage.setItem("currentUser", JSON.stringify(result.user));
       toast({
         title: "Welcome back! 👋",
-        description: `Successfully logged in as ${user.username}`,
+        description: `Successfully logged in as ${result.user.username}`,
       });
       setLocation("/app");
-    } else {
+    } catch (error) {
       toast({
         title: "Login failed",
-        description: "Invalid email or password. Check your details or register a new account.",
+        description: error instanceof Error ? error.message : "Invalid email or password",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleRegister = (data: RegisterData) => {
-    const usersJson = localStorage.getItem("users");
-    const users: User[] = usersJson ? JSON.parse(usersJson) : [];
-    
-    if (users.some(u => u.email === data.email)) {
+  const handleRegister = async (data: RegisterData) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to create account");
+      }
+
+      localStorage.setItem("currentUser", JSON.stringify(result.user));
+      toast({
+        title: "Account created!",
+        description: `Welcome to LogoMind AI, ${result.user.username}!`,
+      });
+      setLocation("/app");
+    } catch (error) {
       toast({
         title: "Registration failed",
-        description: "An account with this email already exists",
+        description: error instanceof Error ? error.message : "Failed to register",
         variant: "destructive",
       });
-      return;
+    } finally {
+      setIsLoading(false);
     }
-
-    const newUser: User = {
-      id: crypto.randomUUID(),
-      email: data.email,
-      username: data.username,
-      password: data.password,
-    };
-
-    users.push(newUser);
-    localStorage.setItem("users", JSON.stringify(users));
-    localStorage.setItem("currentUser", JSON.stringify(newUser));
-    
-    toast({
-      title: "Account created!",
-      description: `Welcome to LogoMind AI, ${newUser.username}!`,
-    });
-    setLocation("/app");
   };
 
   return (
     <div className="min-h-screen bg-mesh-pattern bg-dot-pattern flex items-center justify-center p-4 sm:p-6 lg:p-10 relative overflow-hidden">
+      {/* Top right theme toggle */}
+      <div className="absolute top-4 right-4 z-20">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={toggleTheme}
+          className="w-10 h-10 rounded-xl glass-card border-border shadow-xs hover:bg-muted transition-all"
+          aria-label="Toggle theme"
+          data-testid="button-auth-theme-toggle"
+        >
+          {resolvedTheme === "dark" ? (
+            <Sun className="w-4 h-4 text-amber-400" />
+          ) : (
+            <Moon className="w-4 h-4 text-foreground/80" />
+          )}
+        </Button>
+      </div>
+
       {/* Decorative ambient background glows */}
       <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-orange-400/15 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 translate-x-1/2 translate-y-1/2 w-96 h-96 bg-pink-400/15 rounded-full blur-3xl pointer-events-none" />
@@ -88,17 +121,17 @@ export default function AuthPage() {
         
         {/* Left Side: Product Showcase (Desktop) */}
         <div className="lg:col-span-6 space-y-6 text-left p-2 sm:p-6">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-orange-500/10 text-orange-700 border border-orange-500/20 shadow-xs">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-orange-500/10 text-orange-700 dark:text-orange-400 border border-orange-500/20 shadow-xs">
             <Sparkles className="w-3.5 h-3.5 text-orange-500" />
-            Next-Gen Neural Logo Studio
+            AI Logo Studio
           </div>
 
           <div className="space-y-3">
             <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-foreground leading-[1.15]">
-              Design Iconic Logos in <span className="gradient-text-saffron-pink">Seconds</span>
+              Design Custom Logos in <span className="gradient-text-saffron-pink">Minutes</span>
             </h1>
             <p className="text-base text-muted-foreground leading-relaxed">
-              Transform your business name into professional, high-resolution branding assets with specialized AI tuned for vector simplicity and Indian design elegance.
+              Create custom, high-resolution logos tailored to your brand style, color preferences, and design vision.
             </p>
           </div>
 
@@ -110,7 +143,7 @@ export default function AuthPage() {
               </div>
               <div>
                 <h4 className="text-xs font-bold text-foreground">6-Step Wizard</h4>
-                <p className="text-[11px] text-muted-foreground">Tailor style, colors, and concepts effortlessly.</p>
+                <p className="text-[11px] text-muted-foreground">Customize style, colors, and concepts step-by-step.</p>
               </div>
             </div>
 
@@ -119,8 +152,8 @@ export default function AuthPage() {
                 <Shield className="w-4 h-4" />
               </div>
               <div>
-                <h4 className="text-xs font-bold text-foreground">Free & Keyless</h4>
-                <p className="text-[11px] text-muted-foreground">Instant access without credit cards or API keys.</p>
+                <h4 className="text-xs font-bold text-foreground">Curated Styles</h4>
+                <p className="text-[11px] text-muted-foreground">Minimalist, vintage, mascot, line art, and more.</p>
               </div>
             </div>
           </div>
@@ -129,11 +162,11 @@ export default function AuthPage() {
           <div className="pt-2 flex items-center gap-4 text-xs text-muted-foreground">
             <div className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              <span>Instant High-Res PNG</span>
+              <span>Instant PNG Downloads</span>
             </div>
             <div className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              <span>Unlimited Variations</span>
+              <span>Color & Style Options</span>
             </div>
           </div>
         </div>
@@ -233,16 +266,13 @@ export default function AuthPage() {
 
                 <Button
                   type="submit"
-                  className="w-full h-11 rounded-xl font-bold gradient-saffron-pink text-white shadow-md shadow-orange-500/20 hover:opacity-95 transition-all gap-2"
+                  disabled={isLoading}
+                  className="w-full h-11 rounded-xl font-bold gradient-saffron-pink text-white shadow-md shadow-orange-500/20 hover:opacity-95 transition-all gap-2 btn-press"
                   data-testid="button-login"
                 >
-                  <span>Sign In</span>
+                  <span>{isLoading ? "Signing in..." : "Sign In"}</span>
                   <ArrowRight className="w-4 h-4" />
                 </Button>
-
-                <p className="text-[11px] text-center text-muted-foreground pt-1">
-                  Demo account? Any registered email & password will work.
-                </p>
               </form>
             )}
 
@@ -280,7 +310,7 @@ export default function AuthPage() {
                     <Input
                       id="register-username"
                       type="text"
-                      placeholder="founder_name"
+                      placeholder="username"
                       className="h-11 pl-10 rounded-xl bg-card border-border text-sm focus-visible:ring-primary"
                       data-testid="input-register-username"
                       {...registerForm.register("username")}
@@ -317,10 +347,11 @@ export default function AuthPage() {
 
                 <Button
                   type="submit"
-                  className="w-full h-11 rounded-xl font-bold gradient-saffron-pink text-white shadow-md shadow-orange-500/20 hover:opacity-95 transition-all gap-2"
+                  disabled={isLoading}
+                  className="w-full h-11 rounded-xl font-bold gradient-saffron-pink text-white shadow-md shadow-orange-500/20 hover:opacity-95 transition-all gap-2 btn-press"
                   data-testid="button-register"
                 >
-                  <span>Create Free Account</span>
+                  <span>{isLoading ? "Creating Account..." : "Create Account"}</span>
                   <ArrowRight className="w-4 h-4" />
                 </Button>
               </form>

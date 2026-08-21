@@ -19,7 +19,7 @@ export function Footer() {
               Empowering creators, entrepreneurs, and startups to design modern, distinct, and scalable logos powered by state-of-the-art AI.
             </p>
             <div className="flex items-center gap-2 pt-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-orange-500/10 text-orange-700 border border-orange-500/20">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-orange-500/10 text-orange-700 dark:text-orange-400 border border-orange-500/20">
                 <Heart className="w-3 h-3 text-red-500 fill-red-500" />
                 Made with passion in India
               </span>
@@ -59,7 +59,7 @@ export function Footer() {
               </li>
               <li className="flex items-center gap-2">
                 <Sparkles className="w-3.5 h-3.5 text-primary" />
-                <span>100% Free & Keyless</span>
+                <span>Curated Design Styles</span>
               </li>
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
