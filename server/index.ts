@@ -69,11 +69,11 @@ app.use((req, res, next) => {
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
+  // Bind to 0.0.0.0 (all interfaces) so cloud hosts like Render/Docker can route traffic.
   const port = parseInt(process.env.PORT || '5000', 10);
+  const host = '0.0.0.0';
 
-server.listen(port, "localhost", () => {
-  log(`✅ Server running at http://localhost:${port}`);
-});
+  server.listen(port, host, () => {
+    log(`✅ Server running at http://${host}:${port}`);
+  });
 })();
