@@ -1,22 +1,29 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Home } from "lucide-react";
+import { Home, Sparkles } from "lucide-react";
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen gradient-saffron-pink flex items-center justify-center p-4">
-      <div className="text-center space-y-6">
-        <h1 className="text-6xl font-bold text-white">404</h1>
-        <h2 className="text-2xl font-semibold text-white">Page Not Found</h2>
-        <p className="text-white/80 max-w-md">
-          The page you're looking for doesn't exist or has been moved.
-        </p>
-        <Link href="/">
-          <Button className="gap-2 bg-white text-primary hover:bg-white/90">
-            <Home className="w-4 h-4" />
-            Go Home
-          </Button>
-        </Link>
+    <div className="min-h-screen bg-mesh-pattern bg-dot-pattern flex items-center justify-center p-4">
+      <div className="max-w-md w-full glass-card rounded-3xl border border-border/80 p-8 text-center space-y-6 shadow-xl shadow-orange-500/5">
+        <div className="w-16 h-16 rounded-2xl gradient-saffron-pink mx-auto flex items-center justify-center text-white shadow-lg shadow-orange-500/25">
+          <Sparkles className="w-8 h-8" />
+        </div>
+        <div className="space-y-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-orange-600">404 Error</span>
+          <h1 className="text-3xl font-extrabold tracking-tight text-foreground">Page Not Found</h1>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            The page you are searching for does not exist, has been removed, or is temporarily unavailable.
+          </p>
+        </div>
+        <div>
+          <Link href="/">
+            <Button className="h-11 px-6 text-xs font-bold gradient-saffron-pink text-white shadow-md shadow-orange-500/20 rounded-xl gap-2 btn-press">
+              <Home className="w-4 h-4" />
+              Return to Studio
+            </Button>
+          </Link>
+        </div>
       </div>
     </div>
   );
