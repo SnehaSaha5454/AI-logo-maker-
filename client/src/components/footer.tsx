@@ -21,7 +21,7 @@ export function Footer() {
             <div className="flex items-center gap-2 pt-2">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-orange-500/10 text-orange-700 dark:text-orange-400 border border-orange-500/20">
                 <Heart className="w-3 h-3 text-red-500 fill-red-500" />
-                Made with passion in India
+                Where ideas become identities.
               </span>
             </div>
           </div>

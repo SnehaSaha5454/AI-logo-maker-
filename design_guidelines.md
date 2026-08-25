@@ -205,11 +205,11 @@
 **Hero Section**: Not applicable for this application (wizard-based flow)
 
 **Icon Usage**: 
-- Use Heroicons via CDN for all interface icons
+- Use Lucide React icons for all interface icons
 - Step indicators, buttons, and navigation
 - Style preview icons in Step 4 (simple geometric shapes representing each style)
 
-**Generated Logos**: Display actual AI-generated images from Hugging Face API
+**Generated Logos**: Display actual AI-generated images from Cloudflare Workers AI (FLUX.1 [schnell])
 
 ## Special Considerations
 
