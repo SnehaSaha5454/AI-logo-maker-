@@ -177,7 +177,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const selectedVariation = variationArchetypes[Math.floor(Math.random() * variationArchetypes.length)];
       const selectedLayout = layoutArrangements[Math.floor(Math.random() * layoutArrangements.length)];
-      const numericSeed = Math.floor(Math.random() * 10000000);
 
       const activeStyle = styleGuidance[selectedStyle] || `${selectedStyle} vector logo style`;
       const activeColor =
@@ -208,9 +207,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             Authorization: `Bearer ${apiToken}`,
             "Content-Type": "application/json",
           },
+          // body: JSON.stringify({
+          //   prompt: constructedPrompt,
+          //   steps: 4,
+          //   seed: numericSeed,
+          // }),
+
           body: JSON.stringify({
-            prompt: constructedPrompt,
-            steps: 4,
+          prompt: constructedPrompt,
+          steps: 4,
           }),
         }
       );
