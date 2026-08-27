@@ -213,7 +213,7 @@ The application is container-ready and binds to `0.0.0.0` with configurable `POR
 
 ## 📸 Screenshots
 
-*(Add your application screenshots here before sharing publicly)*
+
 
 | Wizard Creation Flow | Logo History Gallery |
 | :---: | :---: |
